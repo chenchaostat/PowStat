@@ -57,7 +57,6 @@ ps_binary_single_arm <- function(
     digits = 4,
     ci_level = 0.95
 ) {
-  # Client-side validation
   if (p0 <= 0 || p0 >= 1) stop("p0 must be between 0 and 1.")
   if (p1 <= 0 || p1 >= 1) stop("p1 must be between 0 and 1.")
   if (alpha <= 0 || alpha >= 1) stop("alpha must be between 0 and 1.")
@@ -75,38 +74,39 @@ ps_binary_single_arm <- function(
     n_fixed = n_fixed,
     power_curve = power_curve,
     p_seq = p_seq,
-    plot = FALSE, # Server does not generate plots; client handles plotting
+    plot = FALSE,
     digits = digits,
     ci_level = ci_level
   )
   
-  # result <- powstat_api_call("binary/single_arm", params)
   result <- powstat_api_call("binary_single_arm", params)
   
+  df_fields <- c(
+    "input",
+    "design_summary",
+    "optimal_design",
+    "fixed_design",
+    "valid_designs",
+    "power_curve"
+  )
   
-  # Convert JSON results back to data frames
+  for (field in df_fields) {
+    if (!is.null(result[[field]])) {
+      result[[field]] <- .powstat_to_df(result[[field]])
+    }
+  }
+  
   if (!is.null(result$input)) {
-    result$input <- as.data.frame(result$input, stringsAsFactors = FALSE)
-  }
-  if (!is.null(result$design_summary)) {
-    result$design_summary <- as.data.frame(result$design_summary, stringsAsFactors = FALSE)
-  }
-  if (!is.null(result$optimal_design)) {
-    result$optimal_design <- as.data.frame(result$optimal_design, stringsAsFactors = FALSE)
-  }
-  if (!is.null(result$fixed_design)) {
-    result$fixed_design <- as.data.frame(result$fixed_design, stringsAsFactors = FALSE)
-  }
-  if (!is.null(result$valid_designs)) {
-    result$valid_designs <- as.data.frame(result$valid_designs, stringsAsFactors = FALSE)
-  }
-  if (!is.null(result$power_curve)) {
-    result$power_curve <- as.data.frame(result$power_curve, stringsAsFactors = FALSE)
+    result$input <- .powstat_normalize_kv_wide(
+      result$input,
+      key = "Parameter",
+      value = "Value"
+    )
   }
   
   result$input_raw <- params
+  result$digits <- digits
   
-  # Generate client-side plot if requested
   if (plot && power_curve && !is.null(result$power_curve)) {
     result$plot <- .build_power_curve_plot(result, params)
   }
@@ -115,6 +115,7 @@ ps_binary_single_arm <- function(
   
   result
 }
+
 
 #' @importFrom rlang .data
 NULL
@@ -169,49 +170,55 @@ NULL
 
 
 #' @export
-print.PowStatBinarySingleArm <- function(x, digits = 4, show_valid = FALSE, ...) {
+print.PowStatBinarySingleArm <- function(
+    x,
+    digits = x$digits %||% 4,
+    show_valid = FALSE,
+    ...
+) {
+  old_width <- getOption("width")
+  on.exit(options(width = old_width), add = TRUE)
+  
+  options(width = max(140, old_width))
+  
   cat("\n")
-  cat("====================================================================\n")
+  .powstat_line("=", 92)
   cat(" Binary Endpoint | Single-Arm Exact Binomial Test Design\n")
   cat(" Sample Size, Critical Point and Power Summary\n")
-  cat("====================================================================\n\n")
+  .powstat_line("=", 92)
   
-  cat("Study Parameters\n")
-  cat("--------------------------------------------------------------------\n")
-  if (!is.null(x$input)) {
-    print(x$input, row.names = FALSE, right = FALSE)
-  }
-  
-  cat("\n")
-  cat("Primary Design Summary\n")
-  cat("--------------------------------------------------------------------\n")
-  
-  if (!is.null(x$design_summary) && nrow(x$design_summary) > 0) {
-    summary_print <- x$design_summary
-    numeric_cols <- sapply(summary_print, is.numeric)
-    summary_print[numeric_cols] <- lapply(
-      summary_print[numeric_cols], function(v) round(v, digits)
+  .powstat_section("Study Parameters")
+  if (!is.null(x$input) && ncol(x$input) >= 2) {
+    .powstat_print_kv(
+      x$input,
+      key_col = 1,
+      value_col = 2,
+      digits = digits,
+      key_width = 42
     )
-    print(summary_print, row.names = FALSE, right = FALSE)
   } else {
-    cat("No design satisfying the target power was found within the search range.\n")
+    .powstat_print_df(x$input, digits = digits)
   }
   
-  if (show_valid && !is.null(x$valid_designs) && nrow(x$valid_designs) > 0) {
-    cat("\n")
-    cat("All Valid Designs Satisfying Target Power\n")
-    cat("--------------------------------------------------------------------\n")
-    valid_print <- x$valid_designs
-    numeric_cols <- sapply(valid_print, is.numeric)
-    valid_print[numeric_cols] <- lapply(
-      valid_print[numeric_cols], function(v) round(v, digits)
-    )
-    print(valid_print, row.names = FALSE, right = FALSE)
+  .powstat_section("Primary Design Summary")
+  .powstat_print_df(x$design_summary, digits = digits)
+  
+  if (!is.null(x$optimal_design) && nrow(x$optimal_design) > 0) {
+    .powstat_section("Optimal Design")
+    .powstat_print_df(x$optimal_design, digits = digits)
   }
   
-  cat("\n")
-  cat("Notes\n")
-  cat("--------------------------------------------------------------------\n")
+  if (!is.null(x$fixed_design) && nrow(x$fixed_design) > 0) {
+    .powstat_section("Fixed Sample Size Design")
+    .powstat_print_df(x$fixed_design, digits = digits)
+  }
+  
+  if (show_valid) {
+    .powstat_section("All Valid Designs Satisfying Target Power")
+    .powstat_print_df(x$valid_designs, digits = digits)
+  }
+  
+  .powstat_section("Notes")
   
   alt <- x$input_raw$alternative %||% "greater"
   
@@ -226,6 +233,7 @@ print.PowStatBinarySingleArm <- function(x, digits = 4, show_valid = FALSE, ...)
   }
   
   cat("4. Confidence interval is Clopper-Pearson exact CI at the critical point.\n")
+  cat("5. Use print(x, show_valid = TRUE) to display all valid designs.\n")
   cat("\n")
   
   invisible(x)

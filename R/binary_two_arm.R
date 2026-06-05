@@ -49,7 +49,6 @@ ps_binary_two_arm <- function(
     exact_max_n0 = 5000,
     digits = 6
 ) {
-  # Client-side validation
   if (!sided %in% c(1, 2)) stop("sided must be 1 or 2.")
   if (p0 <= 0 || p0 >= 1) stop("p0 must be between 0 and 1.")
   if (p1 <= 0 || p1 >= 1) stop("p1 must be between 0 and 1.")
@@ -69,71 +68,75 @@ ps_binary_two_arm <- function(
     digits = digits
   )
   
-  # result <- powstat_api_call("binary/two_arm", params)
   result <- powstat_api_call("binary_two_arm", params)
   
+  df_fields <- c(
+    "input",
+    "sample_size_summary",
+    "fixed_n_criticalValuesEffectScale"
+  )
   
-  # Convert to data frames
+  for (field in df_fields) {
+    if (!is.null(result[[field]])) {
+      result[[field]] <- .powstat_to_df(result[[field]])
+    }
+  }
+  
   if (!is.null(result$input)) {
-    result$input <- as.data.frame(result$input, stringsAsFactors = FALSE)
-  }
-  if (!is.null(result$sample_size_summary)) {
-    result$sample_size_summary <- as.data.frame(
-      result$sample_size_summary, stringsAsFactors = FALSE
+    result$input <- .powstat_normalize_kv_wide(
+      result$input,
+      key = "Parameter",
+      value = "Value"
     )
   }
-  if (!is.null(result$fixed_n_criticalValuesEffectScale)) {
-    result$fixed_n_criticalValuesEffectScale <- as.data.frame(
-      result$fixed_n_criticalValuesEffectScale, stringsAsFactors = FALSE
-    )
-  }
+  
+  result$digits <- digits
   
   class(result) <- "PowStatBinaryTwoArm"
   
   result
 }
 
+
+
 #' @export
-print.PowStatBinaryTwoArm <- function(x, digits = 6, ...) {
+print.PowStatBinaryTwoArm <- function(x, digits = x$digits %||% 6, ...) {
+  old_width <- getOption("width")
+  on.exit(options(width = old_width), add = TRUE)
+  
+  options(width = max(140, old_width))
+  
   cat("\n")
-  cat("====================================================================\n")
+  .powstat_line("=", 92)
   cat(" Binary Endpoint | Two-Arm Superiority Design\n")
   cat(" Sample Size and Critical Effect Scale Summary\n")
-  cat("====================================================================\n\n")
+  .powstat_line("=", 92)
   
-  cat("Study Parameters\n")
-  cat("--------------------------------------------------------------------\n")
-  if (!is.null(x$input)) {
-    print(x$input, row.names = FALSE, right = FALSE)
-  }
-  
-  cat("\n")
-  cat("Sample Size and Critical Effect Scale Summary\n")
-  cat("--------------------------------------------------------------------\n")
-  if (!is.null(x$sample_size_summary)) {
-    ss_print <- x$sample_size_summary
-    numeric_cols <- sapply(ss_print, is.numeric)
-    ss_print[numeric_cols] <- lapply(
-      ss_print[numeric_cols], function(v) round(v, digits)
+  .powstat_section("Study Parameters")
+  if (!is.null(x$input) && ncol(x$input) >= 2) {
+    .powstat_print_kv(
+      x$input,
+      key_col = 1,
+      value_col = 2,
+      digits = digits,
+      key_width = 42
     )
-    print(ss_print, row.names = FALSE, right = FALSE)
+  } else {
+    .powstat_print_df(x$input, digits = digits)
   }
   
-  if (!is.null(x$fixed_n_criticalValuesEffectScale)) {
-    cat("\n")
-    cat("Fixed Sample Size: Critical Effect Scale and Achieved Power\n")
-    cat("--------------------------------------------------------------------\n")
-    fixed_print <- x$fixed_n_criticalValuesEffectScale
-    numeric_cols <- sapply(fixed_print, is.numeric)
-    fixed_print[numeric_cols] <- lapply(
-      fixed_print[numeric_cols], function(v) round(v, digits)
-    )
-    print(fixed_print, row.names = FALSE, right = FALSE)
+  .powstat_section("Sample Size and Critical Effect Scale Summary")
+  .powstat_print_df(x$sample_size_summary, digits = digits)
+  
+  if (
+    !is.null(x$fixed_n_criticalValuesEffectScale) &&
+    nrow(x$fixed_n_criticalValuesEffectScale) > 0
+  ) {
+    .powstat_section("Fixed Sample Size: Critical Effect Scale and Achieved Power")
+    .powstat_print_df(x$fixed_n_criticalValuesEffectScale, digits = digits)
   }
   
-  cat("\n")
-  cat("Notes\n")
-  cat("--------------------------------------------------------------------\n")
+  .powstat_section("Notes")
   cat("1. n1 = treatment group; n0 = control group.\n")
   cat("2. cv_pooled_manual uses the pooled Wald SE under the alternative average rate.\n")
   cat("3. cv_unpooled_manual uses the unpooled Wald SE under p1 and p0.\n")
@@ -142,3 +145,4 @@ print.PowStatBinaryTwoArm <- function(x, digits = 6, ...) {
   
   invisible(x)
 }
+

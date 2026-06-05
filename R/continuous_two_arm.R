@@ -78,8 +78,14 @@ ps_continuous_two_arm <- function(
   result <- powstat_api_call("continuous_two_arm_mdd", params)
   
   
-  result$parameters <- as.data.frame(result$parameters, stringsAsFactors = FALSE)
-  result$results <- as.data.frame(result$results, stringsAsFactors = FALSE)
+  result$parameters <- .powstat_to_df(result$parameters)
+  result$results <- .powstat_to_df(result$results)
+  
+  result$parameters <- .powstat_normalize_kv_wide(
+    result$parameters,
+    key = "Parameter",
+    value = "Value"
+  )
   
   class(result) <- "PowStatContinuousTwoArm"
   
@@ -87,24 +93,35 @@ ps_continuous_two_arm <- function(
 }
 
 #' @export
-print.PowStatContinuousTwoArm <- function(x, ...) {
+#' @export
+print.PowStatContinuousTwoArm <- function(x, digits = x$digits %||% 5, ...) {
+  old_width <- getOption("width")
+  on.exit(options(width = old_width), add = TRUE)
+  
+  options(width = max(140, old_width))
+  
   cat("\n")
-  cat("============================================================\n")
+  .powstat_line("=", 92)
   cat(" Continuous Endpoint | Two-Arm Design | MDD Calculation\n")
-  cat("============================================================\n\n")
+  .powstat_line("=", 92)
   
-  cat("Study Parameters\n")
-  cat("------------------------------------------------------------\n")
-  print(x$parameters, row.names = FALSE, right = FALSE)
+  .powstat_section("Study Parameters")
+  if (!is.null(x$parameters) && ncol(x$parameters) >= 2) {
+    .powstat_print_kv(
+      x$parameters,
+      key_col = 1,
+      value_col = 2,
+      digits = digits,
+      key_width = 44
+    )
+  } else {
+    .powstat_print_df(x$parameters, digits = digits)
+  }
   
-  cat("\n")
-  cat("Main Results\n")
-  cat("------------------------------------------------------------\n")
-  print(x$results, row.names = FALSE, right = FALSE)
+  .powstat_section("Main Results")
+  .powstat_print_df(x$results, digits = digits)
   
-  cat("\n")
-  cat("Notes\n")
-  cat("------------------------------------------------------------\n")
+  .powstat_section("Notes")
   cat("1. Method 1 uses rpact to calculate the required sample size based on the specified alternative.\n")
   cat("2. Method 2 calculates MDD using:\n")
   cat("   MDD = (Z_alpha + Z_beta) * SD * sqrt(1/n1 + 1/n2)\n")
