@@ -129,9 +129,51 @@ ps_tte_logrank <- function(
   
   for (field in df_fields) {
     if (!is.null(result[[field]])) {
-      result[[field]] <- as.data.frame(result[[field]], stringsAsFactors = FALSE)
+      result[[field]] <- .powstat_to_df(result[[field]])
     }
   }
+  
+  # 防御性修复：Metric/Value 横向宽表转成长表
+  if (!is.null(result$input)) {
+    result$input <- .powstat_normalize_kv_wide(
+      result$input,
+      key = "Parameter",
+      value = "Value"
+    )
+  }
+  
+  if (!is.null(result$model_summary)) {
+    result$model_summary <- .powstat_normalize_kv_wide(
+      result$model_summary,
+      key = "Parameter",
+      value = "Value"
+    )
+  }
+  
+  if (!is.null(result$event_summary)) {
+    result$event_summary <- .powstat_normalize_kv_wide(
+      result$event_summary,
+      key = "Metric",
+      value = "Value"
+    )
+  }
+  
+  if (!is.null(result$duration_summary)) {
+    result$duration_summary <- .powstat_normalize_kv_wide(
+      result$duration_summary,
+      key = "Metric",
+      value = "Value"
+    )
+  }
+  
+  # 防御性修复：Group/N/Group.1/N.1 转成长表
+  if (!is.null(result$sample_size_summary)) {
+    result$sample_size_summary <- .powstat_normalize_repeated_sets(
+      result$sample_size_summary,
+      cols = c("Group", "N", "Allocation_Proportion")
+    )
+  }
+  
   
   result$digits <- digits
   
@@ -140,69 +182,59 @@ ps_tte_logrank <- function(
   result
 }
 
+
+
 #' @export
 print.PowStatTTELogrank <- function(x, digits = x$digits %||% 6, ...) {
-  round_df <- function(df, digits) {
-    df2 <- as.data.frame(df)
-    numeric_cols <- sapply(df2, is.numeric)
-    df2[numeric_cols] <- lapply(
-      df2[numeric_cols], function(v) round(v, digits)
-    )
-    df2
-  }
+  old_width <- getOption("width")
+  on.exit(options(width = old_width), add = TRUE)
+  
+  # 尽量给控制台更宽的显示空间
+  options(width = max(140, old_width))
   
   cat("\n")
-  cat("================================================================================\n")
+  .powstat_line("=", 92)
   cat(" Time-to-Event Endpoint | Two-Arm Logrank Design\n")
   cat(" Sample Size, Event Target, Calendar Duration and Boundary Summary\n")
-  cat("================================================================================\n\n")
+  .powstat_line("=", 92)
   
-  cat("Study Parameters\n")
-  cat("--------------------------------------------------------------------------------\n")
-  if (!is.null(x$input)) {
-    print(round_df(x$input, digits), row.names = FALSE, right = FALSE)
+  .powstat_section("Study Parameters")
+  if (!is.null(x$input) && ncol(x$input) >= 2) {
+    .powstat_print_kv(x$input, key_col = 1, value_col = 2, digits = digits, key_width = 42)
+  } else {
+    .powstat_print_df(x$input, digits = digits)
   }
   
-  cat("\n")
-  cat("Survival and Dropout Model\n")
-  cat("--------------------------------------------------------------------------------\n")
-  if (!is.null(x$model_summary)) {
-    print(round_df(x$model_summary, digits), row.names = FALSE, right = FALSE)
+  .powstat_section("Survival and Dropout Model")
+  if (!is.null(x$model_summary) && ncol(x$model_summary) >= 2) {
+    .powstat_print_kv(x$model_summary, key_col = 1, value_col = 2, digits = digits, key_width = 42)
+  } else {
+    .powstat_print_df(x$model_summary, digits = digits)
   }
   
-  cat("\n")
-  cat("Sample Size Information\n")
-  cat("--------------------------------------------------------------------------------\n")
-  if (!is.null(x$sample_size_summary)) {
-    print(round_df(x$sample_size_summary, digits), row.names = FALSE, right = FALSE)
+  .powstat_section("Sample Size Information")
+  .powstat_print_df(x$sample_size_summary, digits = digits)
+  
+  .powstat_section("Event and Information Summary")
+  if (!is.null(x$event_summary) && ncol(x$event_summary) >= 2) {
+    .powstat_print_kv(x$event_summary, key_col = 1, value_col = 2, digits = digits, key_width = 56)
+  } else {
+    .powstat_print_df(x$event_summary, digits = digits)
   }
   
-  cat("\n")
-  cat("Event and Information Summary\n")
-  cat("--------------------------------------------------------------------------------\n")
-  if (!is.null(x$event_summary)) {
-    print(round_df(x$event_summary, digits), row.names = FALSE, right = FALSE)
+  .powstat_section("Accrual and Study Duration Summary")
+  if (!is.null(x$duration_summary) && ncol(x$duration_summary) >= 2) {
+    .powstat_print_kv(x$duration_summary, key_col = 1, value_col = 2, digits = digits, key_width = 42)
+  } else {
+    .powstat_print_df(x$duration_summary, digits = digits)
   }
   
-  cat("\n")
-  cat("Accrual and Study Duration Summary\n")
-  cat("--------------------------------------------------------------------------------\n")
-  if (!is.null(x$duration_summary)) {
-    print(round_df(x$duration_summary, digits), row.names = FALSE, right = FALSE)
-  }
+  .powstat_section("Analysis-Look Details")
+  .powstat_print_wide_df(x$stages, digits = digits, cols_per_block = 6)
   
-  cat("\n")
-  cat("Analysis-Look Details\n")
-  cat("--------------------------------------------------------------------------------\n")
-  if (!is.null(x$stages)) {
-    print(round_df(x$stages, digits), row.names = FALSE, right = FALSE)
-  }
-  
-  cat("\n")
-  cat("Notes\n")
-  cat("--------------------------------------------------------------------------------\n")
+  .powstat_section("Notes")
   cat("1. Calendar_Time is measured from first subject in.\n")
-  cat("2. Additional_Followup is follow-up after completion of accrual.\n")
+  cat("2. Additional_Followup is the follow-up duration after completion of accrual.\n")
   cat("3. Event targets are rounded upward for calendar-duration calculations.\n")
   cat("4. MDD is the minimum detectable HR at the corresponding efficacy boundary.\n")
   cat("\n")
