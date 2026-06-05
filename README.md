@@ -185,26 +185,13 @@ library(PowStat)
 
 ## API configuration
 
-`PowStat` client-side functions call a backend API through
-`powstat_api_call()`.
-
-Depending on your implementation, the API base URL may be configured
-through an environment variable, a package option, or another
-configuration helper.
-
-A typical setup may look like:
+Run the following code to conduct API configuration: `PowStat`
+client-side functions call a backend API through `powstat_api_call()`.
 
 ``` r
-Sys.setenv(POWSTAT_API_BASE_URL = "https://your-powstat-api.example.com")
+powstat_set_api_token("Contact the author to get api token")
+powstat_set_server("Contact the author to get server address")
 ```
-
-or:
-
-``` r
-options(powstat.api_base_url = "https://your-powstat-api.example.com")
-```
-
-Please adapt this section to your actual deployment configuration.
 
 ------------------------------------------------------------------------
 
@@ -256,18 +243,18 @@ $$
 ## Function signature
 
 ``` r
-ps_continuous_two_arm(
+res <- ps_continuous_two_arm(
   groups = 2,
   normalApproximation = FALSE,
   alpha = 0.025,
-  beta = 0.2,
-  alternative,
+  beta = 1 - 0.8,
+  alternative = 4.023819,
   sided = 1,
-  stDev,
+  stDev = 19,
   allocationRatioPlanned = 1,
-  singlearmsamplesize,
-  digits = 5
+  singlearmsamplesize = 300
 )
+print(res)
 ```
 
 ## Arguments
@@ -395,24 +382,25 @@ $$
 ## Function signature
 
 ``` r
-ps_tte_logrank(
-  medsurv_control,
-  hr,
+res_fix <- ps_tte_logrank(
+  medsurv_control = 9.7,
+  hr = 0.682,
   n_interim = 0,
   info_frac = NULL,
   alpha = 0.025,
   beta = 0.1,
   allocation_ratio = 1,
-  accrual_rate = NULL,
-  accrual_duration = NULL,
+  accrual_rate = 20,
+  accrual_duration = 20,
   n_total = NULL,
   total_study_duration = NULL,
-  dropout_rate_control = 0,
-  dropout_rate_treatment = dropout_rate_control,
+  dropout_rate_control = 0.1,
+  dropout_rate_treatment = 0.1,
   spending_function = "sfLDOF",
   sided = 1,
   digits = 6
 )
+print(res_fix)
 ```
 
 ## Arguments
