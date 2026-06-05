@@ -1,0 +1,27 @@
+Package: PowStat
+Title: Clinical Trial Sample Size Calculation and Statistical Design
+Version: 0.1.0
+Authors@R: 
+    person("PowStat", "Chen Chao", , "chenchaostat@163.com", role = c("aut", "cre"))
+Description: A client-server R package for clinical trial sample size 
+    calculation and statistical design. Supports continuous, binary, and 
+    time-to-event endpoints with fixed and group sequential designs. 
+    Core computations run on a server; 
+    the client package provides a lightweight API interface.
+License: GPL (>= 3)
+URL: https://github.com/chenchaostat/PowStat
+BugReports: https://github.com/chenchaostat/PowStat/issues
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Depends:
+    rlang
+Imports:
+    httr2 (>= 1.0.0),
+    cli (>= 3.0.0)
+Suggests:
+    testthat (>= 3.0.0),
+    rmarkdown,
+    ggplot2,
+    jsonlite
+Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0
