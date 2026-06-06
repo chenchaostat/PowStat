@@ -185,12 +185,12 @@ ps_tte_logrank <- function(
 
 
 #' @export
+#' @export
 print.PowStatTTELogrank <- function(x, digits = x$digits %||% 6, ...) {
   old_width <- getOption("width")
   on.exit(options(width = old_width), add = TRUE)
   
-  # 尽量给控制台更宽的显示空间
-  options(width = max(140, old_width))
+  options(width = max(160, old_width))
   
   cat("\n")
   .powstat_line("=", 92)
@@ -217,7 +217,7 @@ print.PowStatTTELogrank <- function(x, digits = x$digits %||% 6, ...) {
   
   .powstat_section("Event and Information Summary")
   if (!is.null(x$event_summary) && ncol(x$event_summary) >= 2) {
-    .powstat_print_kv(x$event_summary, key_col = 1, value_col = 2, digits = digits, key_width = 56)
+    .powstat_print_kv(x$event_summary, key_col = 1, value_col = 2, digits = digits, key_width = 60)
   } else {
     .powstat_print_df(x$event_summary, digits = digits)
   }
@@ -230,13 +230,16 @@ print.PowStatTTELogrank <- function(x, digits = x$digits %||% 6, ...) {
   }
   
   .powstat_section("Analysis-Look Details")
-  .powstat_print_wide_df(x$stages, digits = digits, cols_per_block = 6)
+  .powstat_print_wide_df(x$stages, digits = digits, cols_per_block = 8)
   
   .powstat_section("Notes")
   cat("1. Calendar_Time is measured from first subject in.\n")
   cat("2. Additional_Followup is the follow-up duration after completion of accrual.\n")
   cat("3. Event targets are rounded upward for calendar-duration calculations.\n")
-  cat("4. MDD is the minimum detectable HR at the corresponding efficacy boundary.\n")
+  cat("4. For interim looks, Calendar_Time is solved directly from expected events by calendar time.\n")
+  cat("5. Dropout is modeled as an exponential competing risk with the event process.\n")
+  cat("6. Uniform accrual is assumed over the accrual duration.\n")
+  cat("7. MDD is the minimum detectable HR at the corresponding efficacy boundary.\n")
   cat("\n")
   
   invisible(x)

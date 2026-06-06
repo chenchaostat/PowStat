@@ -223,6 +223,7 @@
 
 
 #' @keywords internal
+#' @keywords internal
 .powstat_print_wide_df <- function(df, digits = 6, cols_per_block = 6) {
   if (is.null(df) || nrow(df) == 0) {
     cat("No data available.\n")
@@ -237,18 +238,27 @@
   })
   
   n <- ncol(df)
+  
+  if (is.null(cols_per_block) || is.infinite(cols_per_block) || cols_per_block >= n) {
+    print(df, row.names = FALSE, right = FALSE)
+    return(invisible(NULL))
+  }
+  
   blocks <- split(seq_len(n), ceiling(seq_len(n) / cols_per_block))
   
   for (i in seq_along(blocks)) {
-    if (length(blocks) > 1) {
+    if (i > 1) {
       cat("\n")
-      cat(sprintf("Columns %d-%d\n", min(blocks[[i]]), max(blocks[[i]])))
-      .powstat_line("-", 92)
     }
     
-    print(df[, blocks[[i]], drop = FALSE], row.names = FALSE, right = FALSE)
+    print(
+      df[, blocks[[i]], drop = FALSE],
+      row.names = FALSE,
+      right = FALSE
+    )
   }
   
   invisible(NULL)
 }
+
 
